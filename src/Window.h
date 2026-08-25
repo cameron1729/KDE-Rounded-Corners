@@ -145,6 +145,11 @@ namespace ShapeCorners
 
     private:
         /**
+         * @brief True if this window had Firefox Document PiP's native identity when it was created.
+         */
+        const bool isFirefoxDocumentPip;
+
+        /**
          * @brief True if the window is explicitly included by config.
          */
         bool isIncluded = false;

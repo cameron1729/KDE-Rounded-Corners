@@ -19,8 +19,6 @@
 
 #include "Effect.h"
 
-#include <QDBusConnection>
-#include <QDBusMessage>
 #include <QDebug>
 
 #include "Animation.h"
@@ -38,52 +36,6 @@
 #include <kwinglutils.h>
 #endif
 
-void ShapeCorners::Effect::WriteBreezeConfig(bool set_disabled)
-{
-    // Ignore if the last change was less than 10 seconds ago.
-    // This is a workaround to prevent infinite loops in X11
-    const auto now  = std::chrono::system_clock::now();
-    const auto diff = std::chrono::duration_cast<std::chrono::seconds>(now - lastConfigReloadTime).count();
-    if (std::abs(diff) < 10) {
-        qWarning() << "ShapeCorners: Skipped writing Breeze config"
-                   << "because the last change was" << diff << "seconds ago.";
-        return;
-    }
-
-    const auto cfg      = KSharedConfig::openConfig(QStringLiteral("breezerc"), KConfig::NoGlobals);
-    auto       cfgGroup = cfg->group(QStringLiteral("Common"));
-
-    const static auto keyOutlineIntensity     = QStringLiteral("OutlineIntensity");
-    const static auto keyRoundedCorners       = QStringLiteral("RoundedCorners");
-    const static auto keyOutlineEnabled       = QStringLiteral("OutlineEnabled");
-    const static auto defaultOutlineIntensity = QStringLiteral("OutlineMedium");
-    const static auto defaultRoundedCorners   = QStringLiteral("true");
-    const static auto defaultOutlineEnabled   = QStringLiteral("true");
-    const auto        valueOutlineIntensity   = set_disabled ? QStringLiteral("OutlineOff") : defaultOutlineIntensity;
-    const auto        valueRoundedCorners     = set_disabled ? QStringLiteral("false") : defaultRoundedCorners;
-    const auto        valueOutlineEnabled     = set_disabled ? QStringLiteral("false") : defaultOutlineEnabled;
-    const auto        entryOutlineIntensity   = cfgGroup.readEntry(keyOutlineIntensity, defaultOutlineIntensity);
-    const auto        entryRoundedCorners     = cfgGroup.readEntry(keyRoundedCorners, defaultRoundedCorners);
-    const auto        entryOutlineEnabled     = cfgGroup.readEntry(keyOutlineEnabled, defaultOutlineIntensity);
-
-    if (entryOutlineIntensity == valueOutlineIntensity && entryRoundedCorners == valueRoundedCorners &&
-        entryOutlineEnabled == valueOutlineEnabled) {
-        qWarning() << "ShapeCorners: Skipped writing Breeze config"
-                   << "because it is already set.";
-        return;
-    }
-
-    qInfo() << "ShapeCorners: Writing Breeze config";
-    cfgGroup.writeEntry(keyOutlineIntensity, valueOutlineIntensity);
-    cfgGroup.writeEntry(keyRoundedCorners, valueRoundedCorners);
-    cfgGroup.writeEntry(keyOutlineEnabled, valueOutlineEnabled);
-    cfg->sync();
-
-    QDBusConnection::sessionBus().send(QDBusMessage::createSignal(
-            QStringLiteral("/KWin"), QStringLiteral("org.kde.KWin"), QStringLiteral("reloadConfig")));
-    lastConfigReloadTime = now;
-}
-
 ShapeCorners::Effect::Effect()
 {
     // Read configuration and initialize the effect.
@@ -91,8 +43,6 @@ ShapeCorners::Effect::Effect()
 
     // If the shader is valid, create the window manager and connect the windowAdded signal.
     if (m_shaderManager.IsValid()) {
-        // Disable Breeze window outline when this effect loads:
-        WriteBreezeConfig(true);
         // Create the window manager with the inactive configuration.
         m_windowManager = std::make_unique<WindowManager>();
         // Connect the windowAdded signal to handle new windows.
@@ -100,14 +50,7 @@ ShapeCorners::Effect::Effect()
     }
 }
 
-ShapeCorners::Effect::~Effect()
-{
-    // If the shader manager is valid, then the effect has been active, so some cleanup is needed.
-    if (m_shaderManager.IsValid()) {
-        // Restore Breeze outline setting when effect is unloaded:
-        WriteBreezeConfig(false);
-    }
-};
+ShapeCorners::Effect::~Effect() = default;
 
 void ShapeCorners::Effect::reconfigure(const ReconfigureFlags flags)
 {

@@ -176,8 +176,6 @@ namespace ShapeCorners
         void windowAdded(KWin::EffectWindow *kwindow);
 
     private:
-        /// Timestamp of the last config reload.
-        std::chrono::system_clock::time_point lastConfigReloadTime = std::chrono::system_clock::time_point::min();
         /// Manages the shader used for rounded corners.
         Shader m_shaderManager;
         /// Manages the windows affected by the effect.
@@ -185,6 +183,5 @@ namespace ShapeCorners
         /// Manages the animation state for window corner effects.
         std::unique_ptr<Animation> m_animation;
 
-        void WriteBreezeConfig(bool set_disabled);
     };
 } // namespace ShapeCorners

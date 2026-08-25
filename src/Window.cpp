@@ -9,8 +9,27 @@
 #include <kwineffects.h>
 #endif
 
+namespace
+{
+bool isFirefoxDocumentPipCandidate(const KWin::EffectWindow *window)
+{
+    const auto windowClass = window->windowClass().simplified().toLower();
+    const auto windowRole  = window->windowRole().trimmed().toLower();
+    const auto geometry    = window->frameGeometry();
+
+    constexpr qreal maxInitialSize = 900.0;
+
+    return (windowClass == QStringLiteral("navigator firefox") ||
+            windowClass == QStringLiteral("firefox firefox")) &&
+           windowRole == QStringLiteral("browser") && window->isNormalWindow() && !window->isUtility() &&
+           window->keepAbove() && geometry.width() > 0 && geometry.height() > 0 &&
+           geometry.width() <= maxInitialSize && geometry.height() <= maxInitialSize;
+}
+} // namespace
+
 ShapeCorners::Window::Window(KWin::EffectWindow *kwindow) :
-    w(kwindow), lastAnimationDuration(Config::animationDuration()), currentConfig(WindowConfig::inactiveWindowConfig())
+    w(kwindow), lastAnimationDuration(Config::animationDuration()), currentConfig(WindowConfig::inactiveWindowConfig()),
+    isFirefoxDocumentPip(isFirefoxDocumentPipCandidate(kwindow))
 {
     connect(Config::self(), &Config::configChanged, this, &Window::configChanged);
     configChanged();
@@ -20,10 +39,14 @@ bool ShapeCorners::Window::isActive() const { return KWin::effects->activeWindow
 
 bool ShapeCorners::Window::hasEffect() const
 {
-    return (w->expandedGeometry().isValid() &&
-            ((w->isNormalWindow() && Config::includeNormalWindows()) || (w->isDialog() && Config::includeDialogs()) ||
-             isIncluded) &&
-            !isExcluded && (hasRoundCorners() || hasOutline()));
+    const auto caption = w->caption();
+    const auto isGoCDPip = isFirefoxDocumentPip &&
+                           (caption.endsWith(QStringLiteral(" — GoCD"), Qt::CaseInsensitive) ||
+                            caption.endsWith(QStringLiteral(" — GoCD — Mozilla Firefox"),
+                                             Qt::CaseInsensitive));
+
+    return w->expandedGeometry().isValid() && isGoCDPip && !isExcluded &&
+           (hasRoundCorners() || hasOutline());
 }
 
 bool ShapeCorners::Window::hasRoundCorners() const
